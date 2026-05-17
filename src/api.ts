@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 
 import type {
   GetConfigResp,
+  GetUploadUrlReq,
+  GetUploadUrlResp,
   GetUpdatesReq,
   GetUpdatesResp,
   SendMessageReq,
@@ -135,6 +137,22 @@ export async function sendMessage(
   await postJson<unknown>({
     baseUrl: opts.baseUrl,
     endpoint: "ilink/bot/sendmessage",
+    body: opts.body,
+    token: opts.token,
+    timeoutMs: opts.timeoutMs ?? DEFAULT_API_TIMEOUT_MS,
+  });
+}
+
+/**
+ * Get a pre-signed CDN upload URL for media.
+ * Must call `ilink/bot/getuploadurl` before uploading to CDN.
+ */
+export async function getUploadUrl(
+  opts: WeixinApiOptions & { body: GetUploadUrlReq },
+): Promise<GetUploadUrlResp> {
+  return postJson<GetUploadUrlResp>({
+    baseUrl: opts.baseUrl,
+    endpoint: "ilink/bot/getuploadurl",
     body: opts.body,
     token: opts.token,
     timeoutMs: opts.timeoutMs ?? DEFAULT_API_TIMEOUT_MS,

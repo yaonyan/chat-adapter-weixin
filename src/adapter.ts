@@ -1,10 +1,12 @@
 import type {
   Adapter,
   AdapterPostableMessage,
+  Attachment,
   ChatInstance,
   EmojiValue,
   FetchOptions,
   FetchResult,
+  FileUpload,
   FormattedContent,
   RawMessage,
   ThreadInfo,
@@ -13,8 +15,16 @@ import { Message, NotImplementedError, parseMarkdown, stringifyMarkdown } from "
 
 import { getUpdates, sendMessage, type WeixinApiOptions } from "./api.js";
 import { defaultStateFilePath, PersistenceStore } from "./persistence.js";
-import type { WeixinMessage } from "./types.js";
+import type { MessageItem, WeixinMessage } from "./types.js";
 import { MessageItemType, MessageState, MessageType } from "./types.js";
+import {
+  extractAttachments,
+  extractFileUploads,
+  buildMediaItemFromAttachment,
+  buildMediaItemFromFileUpload,
+  buildAttachmentForMediaItem,
+} from "./media/helpers.js";
+import { getCdnBaseUrl } from "./media/cdn.js";
 
 // ---------------------------------------------------------------------------
 // Thread ID format: "weixin:{userId}"
@@ -162,17 +172,34 @@ export class WeixinAdapter implements Adapter<WeixinThreadId, WeixinMessage> {
     const contextToken = this.store?.getContextToken(toUserId);
     const clientId = `weixin-bot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+    const itemList: MessageItem[] = [];
+    if (text) {
+      itemList.push({ type: MessageItemType.TEXT, text_item: { text } });
+    }
+
+    const cdnBaseUrl = getCdnBaseUrl();
+
+    for (const att of extractAttachments(message)) {
+      const item = await buildMediaItemFromAttachment(att, toUserId, this.apiOpts, cdnBaseUrl);
+      if (item) itemList.push(item);
+    }
+
+    for (const file of extractFileUploads(message)) {
+      const item = await buildMediaItemFromFileUpload(file, toUserId, this.apiOpts, cdnBaseUrl);
+      if (item) itemList.push(item);
+    }
+
     const outMsg: WeixinMessage = {
       to_user_id: toUserId,
       client_id: clientId,
       message_type: MessageType.BOT,
       message_state: MessageState.FINISH,
       context_token: contextToken,
-      item_list: text ? [{ type: MessageItemType.TEXT, text_item: { text } }] : [],
+      item_list: itemList.length > 0 ? itemList : undefined,
     };
 
     await sendMessage({ ...this.apiOpts, body: { msg: outMsg } });
-    console.log(`[WeixinAdapter] sendMessage ok to=${toUserId} baseUrl=${this.apiOpts.baseUrl} contextToken=${contextToken ? "yes" : "none"}`);
+    console.log(`[WeixinAdapter] sendMessage ok to=${toUserId} items=${itemList.length}`);
 
     return {
       id: String(Date.now()),
@@ -260,6 +287,13 @@ export class WeixinAdapter implements Adapter<WeixinThreadId, WeixinMessage> {
     const fromUserId = raw.from_user_id ?? "unknown";
     const threadId = encodeThreadId(fromUserId);
     const text = extractText(raw);
+    const cdnBaseUrl = getCdnBaseUrl();
+
+    const attachments: Attachment[] = [];
+    for (const item of raw.item_list ?? []) {
+      const att = buildAttachmentForMediaItem(item, item.type ?? 0, cdnBaseUrl);
+      if (att) attachments.push(att);
+    }
 
     const msg = new Message<WeixinMessage>({
       id: String(raw.message_id ?? raw.seq ?? Date.now()),
@@ -278,7 +312,7 @@ export class WeixinAdapter implements Adapter<WeixinThreadId, WeixinMessage> {
         dateSent: raw.create_time_ms ? new Date(raw.create_time_ms) : new Date(),
         edited: false,
       },
-      attachments: [],
+      attachments,
       isMention: true,
     });
 

@@ -1,6 +1,6 @@
 # @yaonyan/chat-adapter-weixin
 
-WeChat (企业微信/iLink) adapter for the [chat](https://www.npmjs.com/package/chat) SDK.
+WeChat (微信/iLink) adapter for the [chat](https://www.npmjs.com/package/chat) SDK.
 
 ## Installation
 

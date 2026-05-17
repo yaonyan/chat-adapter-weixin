@@ -1,18 +1,18 @@
-# @chat-adapter/weixin
+# @yaonyan/chat-adapter-weixin
 
 WeChat (企业微信/iLink) adapter for the [chat](https://www.npmjs.com/package/chat) SDK.
 
 ## Installation
 
 ```bash
-pnpm add @chat-adapter/weixin chat
+pnpm add @yaonyan/chat-adapter-weixin chat
 ```
 
 ## Usage
 
 ```typescript
 import { Chat } from "chat";
-import { createWeixinAdapter } from "@chat-adapter/weixin";
+import { createWeixinAdapter } from "@yaonyan/chat-adapter-weixin";
 import { createMemoryState } from "@chat-adapter/state-memory";
 
 const adapter = createWeixinAdapter({

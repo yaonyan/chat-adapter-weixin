@@ -14,7 +14,7 @@ import { Message, NotImplementedError, parseMarkdown, stringifyMarkdown } from "
 import { getUpdates, sendMessage, type WeixinApiOptions } from "./api.js";
 import { defaultStateFilePath, PersistenceStore } from "./persistence.js";
 import type { WeixinMessage } from "./types.js";
-import { MessageType } from "./types.js";
+import { MessageItemType, MessageState, MessageType } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Thread ID format: "weixin:{userId}"
@@ -87,7 +87,8 @@ export class WeixinAdapter implements Adapter<WeixinThreadId, WeixinMessage> {
   readonly name = "weixin";
   /** WeChat is DM-only; persist thread history for history support. */
   readonly persistThreadHistory = true;
-  readonly lockScope = "channel" as const;
+  /** Each WeChat user is an independent DM thread; use thread-level locking for concurrency. */
+  readonly lockScope = "thread" as const;
   /** Required by Adapter interface — bot display name. */
   readonly userName: string;
 
@@ -119,6 +120,7 @@ export class WeixinAdapter implements Adapter<WeixinThreadId, WeixinMessage> {
   async initialize(chat: ChatInstance): Promise<void> {
     this.chat = chat;
     this.pollingActive = true;
+    console.log(`[WeixinAdapter] initialize: token=${this.apiOpts.token ? "yes(" + this.apiOpts.token.length + ")" : "NONE"} baseUrl=${this.apiOpts.baseUrl} stateFile=${this.store ? "yes" : "no"}`);
     this.startPolling();
   }
 
@@ -158,15 +160,19 @@ export class WeixinAdapter implements Adapter<WeixinThreadId, WeixinMessage> {
     const toUserId = decodeUserId(threadId);
     const text = toAdapterText(message);
     const contextToken = this.store?.getContextToken(toUserId);
+    const clientId = `weixin-bot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const outMsg: WeixinMessage = {
       to_user_id: toUserId,
+      client_id: clientId,
       message_type: MessageType.BOT,
+      message_state: MessageState.FINISH,
       context_token: contextToken,
-      item_list: [{ text_item: { text } }],
+      item_list: text ? [{ type: MessageItemType.TEXT, text_item: { text } }] : [],
     };
 
     await sendMessage({ ...this.apiOpts, body: { msg: outMsg } });
+    console.log(`[WeixinAdapter] sendMessage ok to=${toUserId} baseUrl=${this.apiOpts.baseUrl} contextToken=${contextToken ? "yes" : "none"}`);
 
     return {
       id: String(Date.now()),
@@ -288,12 +294,15 @@ export class WeixinAdapter implements Adapter<WeixinThreadId, WeixinMessage> {
   }
 
   private async pollLoop(): Promise<void> {
+    console.log("[WeixinAdapter] pollLoop started");
     while (this.pollingActive) {
       try {
+        console.log("[WeixinAdapter] calling getUpdates...");
         const resp = await getUpdates({
           ...this.apiOpts,
           get_updates_buf: this.store?.getPollingBuf() ?? "",
         });
+        console.log(`[WeixinAdapter] getUpdates returned: msgs=${resp.msgs?.length ?? 0} hasBuf=${Boolean(resp.get_updates_buf)}`);
 
         if (resp.get_updates_buf) {
           this.store?.setPollingBuf(resp.get_updates_buf);
@@ -301,6 +310,7 @@ export class WeixinAdapter implements Adapter<WeixinThreadId, WeixinMessage> {
 
         const msgs = resp.msgs ?? [];
         for (const raw of msgs) {
+          console.log(`[WeixinAdapter] msg: type=${raw.message_type} from=${raw.from_user_id} text=${JSON.stringify(raw.item_list?.map(i => i.text_item?.text).filter(Boolean))}`);
           // Only handle inbound user messages
           if (raw.message_type !== MessageType.USER) continue;
           if (!raw.from_user_id) continue;
@@ -319,6 +329,7 @@ export class WeixinAdapter implements Adapter<WeixinThreadId, WeixinMessage> {
         await sleep(5_000);
       }
     }
+    console.log("[WeixinAdapter] pollLoop ended");
   }
 
   private dispatchMessage(raw: WeixinMessage): void {

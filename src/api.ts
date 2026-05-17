@@ -41,7 +41,37 @@ function buildHeaders(token?: string): Record<string, string> {
   return headers;
 }
 
-async function postJson<T>(params: {
+export async function getJson<T>(params: {
+  baseUrl: string;
+  endpoint: string;
+  timeoutMs?: number;
+}): Promise<T> {
+  const url = new URL(params.endpoint, ensureTrailingSlash(params.baseUrl));
+  const controller =
+    params.timeoutMs !== undefined ? new AbortController() : undefined;
+  const t =
+    controller && params.timeoutMs !== undefined
+      ? setTimeout(() => controller.abort(), params.timeoutMs)
+      : undefined;
+  try {
+    const res = await fetch(url.toString(), {
+      method: "GET",
+      headers: buildHeaders(),
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+    if (t !== undefined) clearTimeout(t);
+    const text = await res.text();
+    if (!res.ok) {
+      throw new Error(`[weixin] ${params.endpoint} HTTP ${res.status}: ${text}`);
+    }
+    return JSON.parse(text) as T;
+  } catch (err) {
+    if (t !== undefined) clearTimeout(t);
+    throw err;
+  }
+}
+
+export async function postJson<T>(params: {
   baseUrl: string;
   endpoint: string;
   body: unknown;

@@ -1,5 +1,5 @@
 {
-  "name": "@chat-adapter/weixin",
+  "name": "@yaonyan/chat-adapter-weixin",
   "version": "0.1.0",
   "description": "WeChat (企业微信/iLink) adapter for the chat SDK",
   "type": "module",
@@ -11,7 +11,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -23,6 +25,7 @@
     "chat": ">=4.0.0"
   },
   "devDependencies": {
+    "@chat-adapter/state-memory": "^4.28.1",
     "@types/node": "^22.0.0",
     "chat": "latest",
     "tsup": "^8.0.0",
@@ -30,6 +33,8 @@
     "vitest": "^4.0.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

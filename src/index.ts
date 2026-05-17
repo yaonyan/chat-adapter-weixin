@@ -3,4 +3,17 @@ export type { WeixinAdapterConfig, WeixinThreadId } from "./adapter.js";
 export type { WeixinApiOptions } from "./api.js";
 export { getUpdates, sendMessage, getConfig, sendTyping } from "./api.js";
 export { PersistenceStore, defaultStateFilePath } from "./persistence.js";
+export {
+  login,
+  startLogin,
+  waitForLogin,
+} from "./login.js";
+export type {
+  LoginOptions,
+  LoginCallbacks,
+  LoginResult,
+  StartLoginResult,
+  WaitLoginResult,
+  QRStatus,
+} from "./login.js";
 export type * from "./types.js";

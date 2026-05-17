@@ -1,7 +1,7 @@
 {
   "name": "@yaonyan/chat-adapter-weixin",
   "version": "0.1.0",
-  "description": "WeChat (企业微信/iLink) adapter for the chat SDK",
+  "description": "WeChat (微信/iLink) adapter for the chat SDK",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
